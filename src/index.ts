@@ -14,9 +14,10 @@ import 'dotenv/config';
 
 
 var init = false;
+var run = true;
 
 (async () => {
-    while(!init) {
+    while(run) {
         console.log(init);
         if (!init) {
             await MessagingService.init();
@@ -28,11 +29,10 @@ var init = false;
         {
             //Lectura del post a procesar          
             var request = new RequestPayload();
-            let now = await Date.now();
             await request.init( globalModels.Model.post, null, 
             [
-                new RequestWhere(RequestWhereType.LESSOREQUALTHAN, "feedDt",  now),
-                //new RequestWhere(RequestWhereType.EQUAL, "feedStatus", "Idle")
+                new RequestWhere(RequestWhereType.LESSOREQUALTHAN, "feedDt",  await (Date.now() - (10 * 60 * 1000))),
+                new RequestWhere(RequestWhereType.EQUAL, "feedStatus", "Idle")
             ],
             {
                 feedStatus: "Fetching"
@@ -42,17 +42,25 @@ var init = false;
             console.log(request);
             var response : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.FIND_ONE_AND_UPDATE), request));
             console.log(response);
-            
-            //Solicito actualizar Post
-            var post = new ReadPostRequestContent(response.entity._id, response.entity);
 
-            var requestSocialMediaPost = new SocialMediaRequestPayload(response.entity.platform, post);
+            if (response.entity === null) run = false;
             
-            console.log(requestSocialMediaPost);
-            var responseSocialMedia : SocialMediaRequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.SOCIALMEDIA, RequestEnum.SocialMedia_Request.READ_POST), requestSocialMediaPost));
-            console.log(responseSocialMedia);
+            if (run) {
+                //Solicito actualizar Post
+                var post = new ReadPostRequestContent(response.entity._id, response.entity);
 
-            //Actualizo en la BD con la info actualizada
+                var requestSocialMediaPost = new SocialMediaRequestPayload(response.entity.platform, post);
+
+                console.log(requestSocialMediaPost);
+                var responseSocialMedia : SocialMediaRequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.SOCIALMEDIA, RequestEnum.SocialMedia_Request.READ_POST), requestSocialMediaPost));
+                console.log(responseSocialMedia);
+
+                //Actualizo en la BD con la info actualizada
+                var requestUpdate = new RequestPayload();
+                await requestUpdate.init(globalModels.Model.post, null, null, {postPlatformFeed: JSON.stringify(responseSocialMedia.post), feedStatus: "Idle", feedDt: await Date.now()}, response.entity._id, null, null, null);
+                var responseUpdate : RequestResponse = Object.assign(await MessagingService.request(this.name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.UPDATE), requestUpdate));
+                console.log(responseUpdate);
+            }
             
         }
         catch (err)
