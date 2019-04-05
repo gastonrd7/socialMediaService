@@ -41,7 +41,13 @@
   },
   "homepage": "https://github.com/gastonrd7/socialMediaService#readme",
   "dependencies": {
-    "cron": "^1.7.0"
+    "@types/selenium-webdriver": "^3.0.15",
+    "cron": "^1.7.0",
+    "cryptr": "^4.0.2",
+    "download-file": "^0.1.5",
+    "lodash": "^4.17.11",
+    "path": "^0.12.7",
+    "selenium-webdriver": "^4.0.0-alpha.1"
   },
   "devDependencies": {
     "@types/node": "^10.12.12",
@@ -51,8 +57,8 @@
     "babel-preset-env": "^1.6.1",
     "babel-preset-stage-3": "^6.24.1",
     "dotenv": "^6.2.0",
-    "influencers-models": "^1.1.4",
-    "influencers-service-bus": "^1.0.11",
+    "influencers-models": "^1.1.29",
+    "influencers-service-bus": "^1.0.33",
     "inversify": "^4.14.0",
     "nodemon": "^1.18.4",
     "nyc": "^13.3.0",
