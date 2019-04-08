@@ -14,7 +14,6 @@ const lodash = require("lodash");
 require("dotenv/config");
 var init = false;
 var run = true;
-var processItem = true;
 let name = 'backgroundService_postFeed';
 (() => __awaiter(this, void 0, void 0, function* () {
     console.log(run);
@@ -35,9 +34,10 @@ let name = 'backgroundService_postFeed';
                 feedStatus: "Fetching"
             }, null, null, null, null, ["creationDt"], true);
             var response = Object.assign(yield influencers_service_bus_1.MessagingService.request(name, yield influencers_service_bus_1.formatRequest(influencers_service_bus_1.Source.STORAGE, influencers_service_bus_1.RequestEnum.DataStorage_Request.FIND_ONE_AND_UPDATE), request));
-            (response.entity === null) ? processItem = false : processItem = true;
+            if (response.entity === null)
+                run = false;
             console.log(response.entity);
-            if (processItem) {
+            if (run) {
                 //Solicito actualizar Info del Post en la red social
                 var readPostrequest = new influencers_service_bus_1.ReadPostRequestContent(response.entity._id, response.entity);
                 var requestSocialMediaPost = new influencers_service_bus_1.SocialMediaRequestPayload(response.entity.platform, readPostrequest);
@@ -154,4 +154,4 @@ function getInsights(postId) {
         return responseInsigths.entities;
     });
 }
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=indexOK.js.map
