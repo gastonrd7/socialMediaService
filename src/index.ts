@@ -15,8 +15,8 @@ ReadPostResponseContent,
 ReadPostRequestContent} from 'influencers-service-bus';
 import * as globalModels from 'influencers-models';
 import * as lodash from 'lodash';
-import 'dotenv/config';
-
+import * as dotenv from "dotenv";
+dotenv.config();
 
 var init = false;
 var run = true;
@@ -24,67 +24,74 @@ var processItem = true;
 let name = 'backgroundService_postFeed';
 
 (async () => {
-    console.log(run);
     while(run) {
-        console.log(init);
         if (!init) {
             await MessagingService.init();
             init = true;
         }
 
         try
-        {
-            console.log('llego');
-            //Lectura del post a procesar          
-            var request = new RequestPayload();
-            await request.init(globalModels.Model.post, null, 
-            [
-                new RequestWhere(RequestWhereType.LESSOREQUALTHAN, "feedDt",  await (Date.now() - (60 * 1000))),
-                new RequestWhere(RequestWhereType.EQUAL, "feedStatus", "Idle")
-            ],
-            {
-                feedStatus: "Fetching"
-            }, 
-            null, null, null, null, ["creationDt"], true);
+        {   
+            let postToProcess = await getPostToProcess();  
             
-            var response : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.FIND_ONE_AND_UPDATE), request));
-             (response.entity === null) ? processItem = false : processItem = true;
-            console.log(response.entity);
+             (postToProcess === null) ? processItem = false : processItem = true;
+
+            console.log(postToProcess);
             if (processItem) {
-                //Solicito actualizar Info del Post en la red social
-                var readPostrequest = new ReadPostRequestContent(response.entity._id, response.entity);
-
-                var requestSocialMediaPost = new SocialMediaRequestPayload(response.entity.platform, readPostrequest);
-
-                var responseSocialMedia : SocialMediaRequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.SOCIALMEDIA, RequestEnum.SocialMedia_Request.READ_POST), requestSocialMediaPost));
-                
-                let postFacebook : FacebookPost = (responseSocialMedia.payload as ReadPostResponseContent).post as FacebookPost;
+                let postFacebook = await readPostInSocialMedia(postToProcess);
                 console.log(postFacebook);
 
-                let insightsInBD = await getInsights(response.entity._id);
+                let insightsInBD = await getInsights(postToProcess._id);
                 
                 let newPersons = await newsPersonsToCreate(insightsInBD, postFacebook);
-                await createNewPersonCredentialInBD(newPersons, response.entity._id, response.entity.platform);
+                await createNewPersonCredentialInBD(newPersons, postToProcess._id, postToProcess.platform);
                 
                 let newInsights = await newsInsightsToCreate(insightsInBD, postFacebook);
-                createNewInsightsInBD(newInsights, response.entity._id, response.entity.platform);
-                //Actualizo en la BD con la info actualizada
-                var requestUpdate = new RequestPayload();
-                await requestUpdate.init(globalModels.Model.post, null, null, {feedStatus: "Idle", feedDt: await Date.now()}, response.entity._id, null, null, null);
-                var responseUpdate : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.UPDATE), requestUpdate));
-                
+                createNewInsightsInDB(newInsights, postToProcess._id, postToProcess.platform);
+
+                await updatePostInDB(postToProcess);
             }
-            
         }
         catch (err)
         {
             console.log('se rompo', err);
-            //return Promise.reject("Error in company budgetAvailable. Error: " + JSON.stringify(err));
         }
     }
 })();
 
-async function createNewInsightsInBD(newInsights, postId, platform) {
+async function updatePostInDB(postToProcess) {
+    var requestUpdate = new RequestPayload();
+    await requestUpdate.init(globalModels.Model.post, null, null, {feedStatus: "Idle", feedDt: await Date.now()}, postToProcess._id, null, null, null);
+    var responseUpdate : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.UPDATE), requestUpdate));
+}
+
+async function readPostInSocialMedia(postToProcess) {
+    var readPostrequest = new ReadPostRequestContent(postToProcess._id, postToProcess);
+    var requestSocialMediaPost = new SocialMediaRequestPayload(postToProcess.platform, readPostrequest);
+    var responseSocialMedia : SocialMediaRequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.SOCIALMEDIA, RequestEnum.SocialMedia_Request.READ_POST), requestSocialMediaPost));
+    let postFacebook : FacebookPost = (responseSocialMedia.payload as ReadPostResponseContent).post as FacebookPost;
+
+    return postFacebook;
+}
+
+async function getPostToProcess() {
+    var request = new RequestPayload();
+    await request.init(globalModels.Model.post, null, 
+    [
+        new RequestWhere(RequestWhereType.LESSOREQUALTHAN, globalModels.postFields.feedStatus,  await (Date.now() - parseInt(process.env.FREQUENCY_OF_EXECUTION))),
+        new RequestWhere(RequestWhereType.EQUAL, globalModels.postFields.feedStatus, globalModels.postFeedStatusEnum.Idle)
+    ],
+    {
+        [globalModels.postFields.feedStatus]: globalModels.postFeedStatusEnum.Fetching
+    }, 
+    null, null, null, null, [globalModels.postFields.creationDt], true);
+    
+    var response : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.FIND_ONE_AND_UPDATE), request));
+
+    return response.entity;
+}
+
+async function createNewInsightsInDB(newInsights, postId, platform) {
     console.log(newInsights);
     try {
         newInsights.forEach(async element => {
@@ -117,17 +124,6 @@ async function newsInsightsToCreate(insightsInBD, post: FacebookPost) {
         let exist = lodash.filter(insightsInBD, (r) => (r.type == element.type && r.platformObjectIdentity == element.platformObjectIdentity));
         if(exist.length === 0) toReturn.push(element);
     });
-    
-    // var newSMs1 = lodash.differenceBy(arrayInsights, insightsInBD, globalModels.insightFields.type );
-    // var newSMs2 = lodash.differenceBy(arrayInsights, insightsInBD, globalModels.insightFields.platformObjectIdentity );
-    
-    // console.log('post: ', arrayInsights);
-    // console.log(' BD: ', insightsInBD);
-    
-    // console.log("diferencia por tipo: ", newSMs1);
-    // console.log("diferencia por plataforma: ", newSMs2);
-    // console.log(lodash.union(newSMs1, newSMs2));
-    // return lodash.union(newSMs1, newSMs2);
     console.log(toReturn);
     return toReturn;
 }
@@ -182,7 +178,6 @@ async function getInsights(postId: String) {
     var responseInsigths : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.READ_MANY), request));
 
     return responseInsigths.entities;
-
 }
 
 
