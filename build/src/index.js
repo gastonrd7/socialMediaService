@@ -25,11 +25,16 @@ let name = 'backgroundService_postFeed';
         }
         try {
             let postToProcess = yield getPostToProcess();
-            (postToProcess === null) ? processItem = false : processItem = true;
-            console.log(postToProcess);
-            if (processItem) {
+            if (postToProcess == null) {
+                console.log('nothing to read at the moment');
+                processItem = false;
+            }
+            else {
+                processItem = true;
+            }
+            if (processItem == true) {
+                console.log('entro igual', postToProcess["_id"]);
                 let postFacebook = yield readPostInSocialMedia(postToProcess);
-                console.log(postFacebook);
                 let insightsInBD = yield getInsights(postToProcess._id);
                 let newPersons = yield newsPersonsToCreate(insightsInBD, postFacebook);
                 yield createNewPersonCredentialInBD(newPersons, postToProcess._id, postToProcess.platform);
@@ -46,7 +51,8 @@ let name = 'backgroundService_postFeed';
 function updatePostInDB(postToProcess) {
     return __awaiter(this, void 0, void 0, function* () {
         var requestUpdate = new influencers_service_bus_1.RequestPayload();
-        yield requestUpdate.init(globalModels.Model.post, null, null, { feedStatus: "Idle", feedDt: yield Date.now() }, postToProcess._id, null, null, null);
+        yield requestUpdate.init(globalModels.Model.post, null, null, { feedStatus: "Idle",
+            feedDt: yield Date.now() }, postToProcess._id, null, null, null);
         var responseUpdate = Object.assign(yield influencers_service_bus_1.MessagingService.request(name, yield influencers_service_bus_1.formatRequest(influencers_service_bus_1.Source.STORAGE, influencers_service_bus_1.RequestEnum.DataStorage_Request.UPDATE), requestUpdate));
     });
 }
@@ -63,7 +69,7 @@ function getPostToProcess() {
     return __awaiter(this, void 0, void 0, function* () {
         var request = new influencers_service_bus_1.RequestPayload();
         yield request.init(globalModels.Model.post, null, [
-            new influencers_service_bus_1.RequestWhere(influencers_service_bus_1.RequestWhereType.LESSOREQUALTHAN, globalModels.postFields.feedStatus, yield (Date.now() - parseInt(process.env.FREQUENCY_OF_EXECUTION))),
+            new influencers_service_bus_1.RequestWhere(influencers_service_bus_1.RequestWhereType.LESSOREQUALTHAN, globalModels.postFields.feedDt, yield (new Date().setMinutes(new Date().getMinutes() - parseInt(process.env.FREQUENCY_OF_EXECUTION)))),
             new influencers_service_bus_1.RequestWhere(influencers_service_bus_1.RequestWhereType.EQUAL, globalModels.postFields.feedStatus, globalModels.postFeedStatusEnum.Idle)
         ], {
             [globalModels.postFields.feedStatus]: globalModels.postFeedStatusEnum.Fetching
@@ -74,7 +80,6 @@ function getPostToProcess() {
 }
 function createNewInsightsInDB(newInsights, postId, platform) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log(newInsights);
         try {
             newInsights.forEach((element) => __awaiter(this, void 0, void 0, function* () {
                 var request = new influencers_service_bus_1.RequestPayload();
@@ -106,7 +111,6 @@ function newsInsightsToCreate(insightsInBD, post) {
             if (exist.length === 0)
                 toReturn.push(element);
         }));
-        console.log(toReturn);
         return toReturn;
     });
 }

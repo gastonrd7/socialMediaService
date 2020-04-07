@@ -33,13 +33,14 @@ let name = 'backgroundService_postFeed';
         try
         {   
             let postToProcess = await getPostToProcess();  
-            
-             (postToProcess === null) ? processItem = false : processItem = true;
+            if (postToProcess == null) {
+                console.log('nothing to read at the moment');
+                processItem = false;
+             } else {processItem = true}
 
-            console.log(postToProcess);
-            if (processItem) {
+            if (processItem == true) {
+                console.log('entro igual', postToProcess["_id"]);
                 let postFacebook = await readPostInSocialMedia(postToProcess);
-                console.log(postFacebook);
 
                 let insightsInBD = await getInsights(postToProcess._id);
                 
@@ -61,7 +62,8 @@ let name = 'backgroundService_postFeed';
 
 async function updatePostInDB(postToProcess) {
     var requestUpdate = new RequestPayload();
-    await requestUpdate.init(globalModels.Model.post, null, null, {feedStatus: "Idle", feedDt: await Date.now()}, postToProcess._id, null, null, null);
+    await requestUpdate.init(globalModels.Model.post, null, null, {feedStatus: "Idle"
+    , feedDt: await Date.now()}, postToProcess._id, null, null, null);
     var responseUpdate : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.UPDATE), requestUpdate));
 }
 
@@ -78,7 +80,7 @@ async function getPostToProcess() {
     var request = new RequestPayload();
     await request.init(globalModels.Model.post, null, 
     [
-        new RequestWhere(RequestWhereType.LESSOREQUALTHAN, globalModels.postFields.feedStatus,  await (Date.now() - parseInt(process.env.FREQUENCY_OF_EXECUTION))),
+        new RequestWhere(RequestWhereType.LESSOREQUALTHAN, globalModels.postFields.feedDt,  await (new Date().setMinutes(new Date().getMinutes() - parseInt(process.env.FREQUENCY_OF_EXECUTION) ))),
         new RequestWhere(RequestWhereType.EQUAL, globalModels.postFields.feedStatus, globalModels.postFeedStatusEnum.Idle)
     ],
     {
@@ -87,12 +89,10 @@ async function getPostToProcess() {
     null, null, null, null, [globalModels.postFields.creationDt], true);
     
     var response : RequestResponse = Object.assign(await MessagingService.request(name, await formatRequest(Source.STORAGE, RequestEnum.DataStorage_Request.FIND_ONE_AND_UPDATE), request));
-
     return response.entity;
 }
 
 async function createNewInsightsInDB(newInsights, postId, platform) {
-    console.log(newInsights);
     try {
         newInsights.forEach(async element => {
             var request = new RequestPayload();
@@ -124,7 +124,6 @@ async function newsInsightsToCreate(insightsInBD, post: FacebookPost) {
         let exist = lodash.filter(insightsInBD, (r) => (r.type == element.type && r.platformObjectIdentity == element.platformObjectIdentity));
         if(exist.length === 0) toReturn.push(element);
     });
-    console.log(toReturn);
     return toReturn;
 }
 
