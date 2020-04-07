@@ -48,7 +48,7 @@
     "download-file": "^0.1.5",
     "install": "^0.12.2",
     "lodash": "^4.17.11",
-    "npm": "^6.9.0",
+    "npm": "^6.13.4",
     "path": "^0.12.7",
     "selenium-webdriver": "^4.0.0-alpha.1"
   },
