@@ -20,7 +20,7 @@ var keys = webDriver.Key;
             .build();
         await driver.get('https://www.facebook.com/');
         await driver.findElement(By.id("email")).sendKeys('ra_cl@hotmail.com');
-        await driver.findElement(By.id("pass")).sendKeys('Racing2018');
+        await driver.findElement(By.id("pass")).sendKeys('BorreAntesDeSubirlo');
         // await driver.findElement(By.id("email")).sendKeys('open_vqmiush_user@tfbnw.net');
         // await driver.findElement(By.id("pass")).sendKeys('Gmatias1234!');
         await driver.findElement(By.id('loginbutton')).submit();
